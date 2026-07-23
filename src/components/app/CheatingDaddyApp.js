@@ -43,7 +43,7 @@ export class CheatingDaddyApp extends LitElement {
             top: 0;
             left: 0;
             right: 0;
-            z-index: 9999;
+            z-index: 20000;
             display: flex;
             align-items: center;
             height: 38px;
@@ -54,6 +54,11 @@ export class CheatingDaddyApp extends LitElement {
             flex: 1;
             height: 100%;
             -webkit-app-region: drag;
+        }
+
+        .top-drag-bar.downloading .drag-region {
+            pointer-events: none;
+            -webkit-app-region: no-drag;
         }
 
         .top-drag-bar.hidden {
@@ -385,6 +390,7 @@ export class CheatingDaddyApp extends LitElement {
         _storageLoaded: { state: true },
         _updateAvailable: { state: true },
         _whisperDownloading: { state: true },
+        _localAiDownloadProgress: { state: true },
     };
 
     constructor() {
@@ -410,6 +416,7 @@ export class CheatingDaddyApp extends LitElement {
         this._timerInterval = null;
         this._updateAvailable = false;
         this._whisperDownloading = false;
+        this._localAiDownloadProgress = { active: false, label: '', percentage: null };
         this._localVersion = '';
 
         this._loadFromStorage();
@@ -474,6 +481,9 @@ export class CheatingDaddyApp extends LitElement {
             ipcRenderer.on('whisper-downloading', (_, downloading) => {
                 this._whisperDownloading = downloading;
             });
+            ipcRenderer.on('local-ai-download-progress', (_, progress) => {
+                this._localAiDownloadProgress = progress;
+            });
         }
     }
 
@@ -488,6 +498,7 @@ export class CheatingDaddyApp extends LitElement {
             ipcRenderer.removeAllListeners('click-through-toggled');
             ipcRenderer.removeAllListeners('reconnect-failed');
             ipcRenderer.removeAllListeners('whisper-downloading');
+            ipcRenderer.removeAllListeners('local-ai-download-progress');
         }
     }
 
@@ -640,6 +651,10 @@ export class CheatingDaddyApp extends LitElement {
         this._startTimer();
     }
 
+    async handleCancelLocalDownload() {
+        await cheatingDaddy.cancelLocalInitialization();
+    }
+
     async handleAPIKeyHelp() {
         if (window.require) {
             const { ipcRenderer } = window.require('electron');
@@ -741,6 +756,8 @@ export class CheatingDaddyApp extends LitElement {
                         .onStart=${() => this.handleStart()}
                         .onExternalLink=${url => this.handleExternalLinkClick(url)}
                         .whisperDownloading=${this._whisperDownloading}
+                        .downloadProgress=${this._localAiDownloadProgress}
+                        .onCancelDownload=${() => this.handleCancelLocalDownload()}
                     ></main-view>
                 `;
 
@@ -962,7 +979,7 @@ export class CheatingDaddyApp extends LitElement {
 
         return html`
             <div class="app-shell">
-                <div class="top-drag-bar ${isLive ? 'hidden' : ''}">
+                <div class="top-drag-bar ${isLive ? 'hidden' : ''} ${this._localAiDownloadProgress.active ? 'downloading' : ''}">
                     <div class="traffic-lights">
                         <button class="traffic-light close" @click=${() => this.handleClose()} title="Close"></button>
                         <button class="traffic-light minimize" @click=${() => this._handleMinimize()} title="Minimize"></button>

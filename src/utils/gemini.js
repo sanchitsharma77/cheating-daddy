@@ -73,9 +73,7 @@ function buildContextMessage() {
 
     if (validTurns.length === 0) return null;
 
-    const contextLines = validTurns.map(turn =>
-        `[Interviewer]: ${turn.transcription.trim()}\n[Your answer]: ${turn.ai_response.trim()}`
-    );
+    const contextLines = validTurns.map(turn => `[Interviewer]: ${turn.transcription.trim()}\n[Your answer]: ${turn.ai_response.trim()}`);
 
     return `Session reconnected. Here's the conversation so far:\n\n${contextLines.join('\n\n')}\n\nContinue from here.`;
 }
@@ -98,7 +96,7 @@ function initializeNewSession(profile = null, customPrompt = null) {
         sendToRenderer('save-session-context', {
             sessionId: currentSessionId,
             profile: profile,
-            customPrompt: customPrompt || ''
+            customPrompt: customPrompt || '',
         });
     }
 }
@@ -134,7 +132,7 @@ function saveScreenAnalysis(prompt, response, model) {
         timestamp: Date.now(),
         prompt: prompt,
         response: response.trim(),
-        model: model
+        model: model,
     };
 
     screenAnalysisHistory.push(analysisEntry);
@@ -146,7 +144,7 @@ function saveScreenAnalysis(prompt, response, model) {
         analysis: analysisEntry,
         fullHistory: screenAnalysisHistory,
         profile: currentProfile,
-        customPrompt: currentCustomPrompt
+        customPrompt: currentCustomPrompt,
     });
 }
 
@@ -210,7 +208,7 @@ async function getStoredSetting(key, defaultValue) {
 // helper to check if groq has been configured
 function hasGroqKey() {
     const key = getGroqApiKey();
-    return key && key.trim() != ''
+    return key && key.trim() != '';
 }
 
 function sendFinalTranscriptionToGroq() {
@@ -227,16 +225,16 @@ function sendFinalTranscriptionToGroq() {
     sendToGroq(transcription);
 }
 
-function trimConversationHistoryForGemma(history, maxChars=42000) {
-    if(!history || history.length === 0) return [];
+function trimConversationHistoryForGemma(history, maxChars = 42000) {
+    if (!history || history.length === 0) return [];
     let totalChars = 0;
     const trimmed = [];
 
-    for(let i = history.length - 1; i >= 0; i--) {
+    for (let i = history.length - 1; i >= 0; i--) {
         const turn = history[i];
         const turnChars = (turn.content || '').length;
 
-        if(totalChars + turnChars > maxChars) break;
+        if (totalChars + turnChars > maxChars) break;
         totalChars += turnChars;
         trimmed.unshift(turn);
     }
@@ -297,7 +295,7 @@ async function sendToGroq(transcription) {
 
     groqConversationHistory.push({
         role: 'user',
-        content: transcription.trim()
+        content: transcription.trim(),
     });
 
     if (groqConversationHistory.length > 20) {
@@ -308,20 +306,17 @@ async function sendToGroq(transcription) {
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${groqApiKey}`,
-                'Content-Type': 'application/json'
+                Authorization: `Bearer ${groqApiKey}`,
+                'Content-Type': 'application/json',
             },
             body: JSON.stringify({
                 model: modelToUse,
-                messages: [
-                    { role: 'system', content: currentSystemPrompt || 'You are a helpful assistant.' },
-                    ...groqConversationHistory
-                ],
+                messages: [{ role: 'system', content: currentSystemPrompt || 'You are a helpful assistant.' }, ...groqConversationHistory],
                 stream: true,
                 temperature: 0.7,
                 max_completion_tokens: GROQ_MAX_COMPLETION_TOKENS,
                 ...getGroqReasoningOptions(modelToUse, config.disableGroqThinking),
-            })
+            }),
         });
 
         if (!response.ok) {
@@ -394,7 +389,7 @@ async function sendToGroq(transcription) {
         if (cleanedResponse) {
             groqConversationHistory.push({
                 role: 'assistant',
-                content: cleanedResponse
+                content: cleanedResponse,
             });
 
             saveConversationTurn(transcription, cleanedResponse);
@@ -416,7 +411,6 @@ async function sendToGroq(transcription) {
         });
         console.log(`Groq response completed (${modelToUse})`);
         sendToRenderer('update-status', 'Listening...');
-
     } catch (error) {
         console.error('Error calling Groq API:', error);
         logTransportEvent('groq.text.error', {
@@ -442,7 +436,7 @@ async function sendImageToGroq(base64Data, prompt) {
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${groqApiKey}`,
+                Authorization: `Bearer ${groqApiKey}`,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
@@ -567,7 +561,7 @@ async function sendToGemma(transcription) {
 
     groqConversationHistory.push({
         role: 'user',
-        content: transcription.trim()
+        content: transcription.trim(),
     });
 
     const trimmedHistory = trimConversationHistoryForGemma(groqConversationHistory, 42000);
@@ -577,14 +571,14 @@ async function sendToGemma(transcription) {
 
         const messages = trimmedHistory.map(msg => ({
             role: msg.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: msg.content }]
+            parts: [{ text: msg.content }],
         }));
 
         const systemPrompt = currentSystemPrompt || 'You are a helpful assistant.';
         const messagesWithSystem = [
             { role: 'user', parts: [{ text: systemPrompt }] },
             { role: 'model', parts: [{ text: 'Understood. I will follow these instructions.' }] },
-            ...messages
+            ...messages,
         ];
 
         const response = await ai.models.generateContentStream({
@@ -614,7 +608,7 @@ async function sendToGemma(transcription) {
         if (fullText.trim()) {
             groqConversationHistory.push({
                 role: 'assistant',
-                content: fullText.trim()
+                content: fullText.trim(),
             });
 
             if (groqConversationHistory.length > 40) {
@@ -626,7 +620,6 @@ async function sendToGemma(transcription) {
 
         console.log('Gemma response completed');
         sendToRenderer('update-status', 'Listening...');
-
     } catch (error) {
         console.error('Error calling Gemma API:', error);
         sendToRenderer('update-status', 'Gemma error: ' + error.message);
@@ -1089,13 +1082,21 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
         return false;
     });
 
-    ipcMain.handle('initialize-local', async (event, ollamaHost, ollamaModel, whisperModel, profile, customPrompt) => {
+    ipcMain.handle('initialize-local', async (event, localLlmModel, whisperModel, profile, customPrompt) => {
         currentProviderMode = 'local';
-        const success = await getLocalAi().initializeLocalSession(ollamaHost, ollamaModel, whisperModel, profile, customPrompt);
+        const success = await getLocalAi().initializeLocalSession(localLlmModel, whisperModel, profile, customPrompt);
         if (!success) {
             currentProviderMode = 'byok';
         }
         return success;
+    });
+
+    ipcMain.handle('cancel-local-initialization', async () => {
+        const cancelled = await getLocalAi().cancelLocalInitialization();
+        if (cancelled) {
+            currentProviderMode = 'byok';
+        }
+        return cancelled;
     });
 
     ipcMain.handle('send-audio-content', async (event, { data, mimeType }) => {
@@ -1196,9 +1197,7 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
                 return result;
             }
 
-            const result = hasGroqKey()
-                ? await sendImageToGroq(data, prompt)
-                : await sendImageToGeminiHttp(data, prompt);
+            const result = hasGroqKey() ? await sendImageToGroq(data, prompt) : await sendImageToGeminiHttp(data, prompt);
             return result;
         } catch (error) {
             console.error('Error sending image:', error);
@@ -1224,7 +1223,7 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
 
         if (currentProviderMode === 'local') {
             try {
-                console.log('Sending text to local Ollama:', text);
+                console.log('Sending text to local Llama:', text);
                 return await getLocalAi().sendLocalText(text.trim());
             } catch (error) {
                 console.error('Error sending local text:', error);
